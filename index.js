@@ -7,13 +7,13 @@ const DELTA = 1 / 64
 const GRAVITY = 100
 const PIPE_SPEED = 10
 const PIPE_WIDTH = 50
-const PIPE_GAP_SIZE = 180
+const PIPE_GAP_SIZE = 280
 const PIPES = []
 const PIPE_SPAWN_DELAY = 0.5
 var spawnTimer = 0
 
 //Player
-const PLAYER_X_POSITION = 248
+const PLAYER_X_POSITION = 200
 const PLAYER_SIZE = 32
 const PLAYER_JUMP_HEIGHT = 20
 
@@ -27,10 +27,28 @@ const simulation = setupSimulation()
 spawnPipe()
 requestAnimationFrame(update)
 
+// requestAnimationFrame(teste)
+
+const a = createRetangle(0, H/2-PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE)
+const b = createRetangle(W/2-PLAYER_SIZE/2, 0, PLAYER_SIZE, H)
+function teste() {
+    ctx.clearRect(0, 0, W, H)
+    
+    setColor('gray')
+    rect(b.pos.x, b.pos.y, b.size.width, b.size.height)
+    
+    setColor(a.overlaps(b) ? 'red' : 'green')
+    rect(a.pos.x, a.pos.y, a.size.width, a.size.height)
+    
+    a.pos.x = (a.pos.x + 1) % W
+    
+    requestAnimationFrame(teste)
+}
+
 function setupSimulation() {
     const parser = createOutputParser('jump', 1)
-    const simulation = createSimulation(createAgentData, 400, 20, 0.1, {
-        inputCount: 3,
+    const simulation = createSimulation(createAgentData, 20, 5, 0.2, {
+        inputCount: 2,
         hLayerCount: 2,
         hNeuronCount: 4,
         outputCount: 1,
@@ -67,6 +85,16 @@ function update() {
     PIPES.forEach(pipe => {
         pipe.moveAndUpdate(PIPE_SPEED)
         
+        if (pipe.position < -PIPE_WIDTH) {
+            PIPES.splice(pipe)
+        } else if (nearestPipe != null) {
+            if (nearestPipe.position <= PLAYER_X_POSITION - PLAYER_SIZE || pipe.position < nearestPipe.position) {
+                nearestPipe = pipe
+            }
+        } else {
+            nearestPipe = pipe
+        }
+        
         setColor('green')
         rect(
             pipe.top.pos.x,
@@ -81,44 +109,70 @@ function update() {
             pipe.bottom.size.width,
             pipe.bottom.size.height
         )
-        
-        if (pipe.position < -PIPE_WIDTH) {
-            PIPES.splice(pipe)
-        } else if (nearestPipe != null) {
-            if (nearestPipe.position <= -PIPE_WIDTH || nearestPipe.position > pipe.position) {
-                nearestPipe = pipe
-            }
-        } else {
-            nearestPipe = pipe
-        }
     })
+    
+    if (nearestPipe != null) {
+        const s = 10
+        
+        setColor('red')
+        rect(
+            nearestPipe.top.pos.x + s,
+            nearestPipe.top.pos.y + s,
+            nearestPipe.top.size.width - s*2,
+            nearestPipe.top.size.height - s*2
+        )
+        
+        rect(
+            nearestPipe.bottom.pos.x + s,
+            nearestPipe.bottom.pos.y + s,
+            nearestPipe.bottom.size.width - s*2,
+            nearestPipe.bottom.size.height - s*2
+        )
+        
+        ctx.beginPath()
+        ctx.arc(nearestPipe.getCenter().x, H-nearestPipe.getCenter().y, 5, 0, 2 * Math.PI);
+        ctx.stroke()
+        ctx.closePath()
+    }
     
     simulation.update((agent) => {
         agent.vel.y -= DELTA * GRAVITY
     
-        var data = [agent.pos.y, 0, 0]
+        var data = [0, 0]
         
         if (nearestPipe != null) {
-            data = [agent.pos.y, nearestPipe.position - agent.pos.x, nearestPipe.displacement]
+            const center = nearestPipe.getCenter()
+            data = [
+                center.x - agent.pos.x,
+                center.y - agent.pos.y
+            ]
         }
     
         const output = agent.predict(data)
     
-        if (output.jump > 0.8) {
+        if (output.jump > 0.5) {
             agent.vel.y = PLAYER_JUMP_HEIGHT
         }
     
         agent.pos.x += agent.vel.x
         agent.pos.y += agent.vel.y
         
+        const agentRect = createRetangle(agent.pos.x - PLAYER_SIZE / 2, agent.pos.y - PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE)
+        const isOverlaping = nearestPipe == null? false : nearestPipe.overlaps(agentRect)
+        
+        if (isOverlaping) {
+            agent.color = 'gray'
+        }
+        
         setColor(agent.color)
-        rect(agent.pos.x - PLAYER_SIZE / 2, agent.pos.y - PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE)
+        rect(agentRect.pos.x, agentRect.pos.y, agentRect.size.width, agentRect.size.height)
+        
         
         agent.points++
-    
-        if (agent.pos.y < 0 || agent.pos.y > H) {
+        
+        if (agent.pos.y < 0 || agent.pos.y > H || isOverlaping) {
             agent.dead()
-            agent.points /= 2
+            agent.points /= 4
         }
     })
     
@@ -136,6 +190,7 @@ function update() {
     if (simulation.autoPopulate()) {
         PIPES.splice(0, PIPES.length)
         spawnTimer = 0
+        spawnPipe()
     }
 
     requestAnimationFrame(update)
@@ -184,6 +239,17 @@ function spawnPipe() {
         pipe.top.pos.x = pipe.position
         pipe.bottom.pos.x = pipe.position
     }
+    
+    pipe.overlaps = (rect) => {
+        return pipe.top.overlaps(rect) || pipe.bottom.overlaps(rect)
+    }
+    
+    pipe.getCenter = () => {
+        return {
+            x: pipe.position + PIPE_WIDTH/2,
+            y: H/2 - displacement
+        }
+    }
 
     PIPES.push(pipe)
 }
@@ -198,7 +264,8 @@ function createRetangle(x, y, w, h) {
     }
 
     rect.overlaps = (other) => {
-        return (this.pos.x < other.pos.x + other.size.width || this.pos.x + this.size.width > other.pos.x) && (this.pos.y < other.pos.y + other.size.height || this.pos.y + this.size.height > other.pos.y)
+        return ((rect.pos.x < other.pos.x + other.size.width) && (rect.pos.x + rect.size.width > other.pos.x)) &&
+               ((rect.pos.y < other.pos.y + other.size.height) && (rect.pos.y + rect.size.height > other.pos.y))
     }
 
     return rect
