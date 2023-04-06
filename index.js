@@ -9,13 +9,13 @@ const PIPE_SPEED = 10
 const PIPE_WIDTH = 50
 const PIPE_GAP_SIZE = 280
 const PIPES = []
-const PIPE_SPAWN_DELAY = 0.5
+const PIPE_SPAWN_DELAY = 0.1
 var spawnTimer = 0
 
 //Player
 const PLAYER_X_POSITION = 200
 const PLAYER_SIZE = 32
-const PLAYER_JUMP_HEIGHT = 20
+const PLAYER_JUMP_HEIGHT = 15
 
 const canvas = document.querySelector("#game")
 canvas.width = W
@@ -52,6 +52,7 @@ function setupSimulation() {
         hLayerCount: 2,
         hNeuronCount: 4,
         outputCount: 1,
+        memoryRate: 0.1,
         parser
     })
 
@@ -82,11 +83,13 @@ function update() {
     
     var nearestPipe = null
     
+    const trash = []
+    
     PIPES.forEach(pipe => {
         pipe.moveAndUpdate(PIPE_SPEED)
         
         if (pipe.position < -PIPE_WIDTH) {
-            PIPES.splice(pipe)
+            trash.push(pipe)
         } else if (nearestPipe != null) {
             if (nearestPipe.position <= PLAYER_X_POSITION - PLAYER_SIZE || pipe.position < nearestPipe.position) {
                 nearestPipe = pipe
@@ -109,6 +112,10 @@ function update() {
             pipe.bottom.size.width,
             pipe.bottom.size.height
         )
+    })
+    
+    trash.forEach(pipe => {
+        PIPES.splice(PIPES.indexOf(pipe), 1)
     })
     
     if (nearestPipe != null) {
@@ -150,7 +157,7 @@ function update() {
     
         const output = agent.predict(data)
     
-        if (output.jump > 0.5) {
+        if (output.jump > 0.5 && agent.vel.y <= 0) {
             agent.vel.y = PLAYER_JUMP_HEIGHT
         }
     
@@ -217,7 +224,7 @@ function spawnPipe() {
         position: W
     }
     
-    const displacement = (-1 + Math.random() * 2) * (PIPE_GAP_SIZE / 2) 
+    const displacement = (-1 + Math.random() * 2) * (PIPE_GAP_SIZE / 4) 
     pipe.displacement = displacement
     
     pipe.top = createRetangle(

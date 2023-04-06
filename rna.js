@@ -20,40 +20,42 @@ function rand() {
     return -1 + Math.random() * 2
 }
 
-function createNeuron(inputCount, f = defaultFunction) {
+function createNeuron(inputCount, memoryRate, f = defaultFunction) {
     const neuron = {}
     neuron.bias = rand()
     neuron.weights = []
+    neuron.output = 0
     
-    for (let i = 0; i < inputCount+1; i++) {
+    for (let i = 0; i < inputCount+2; i++) {
         neuron.weights.push(rand())
     }
     
     neuron.predict = (data) => {
-        var sum = neuron.bias * neuron.weights[0]
+        var sum = neuron.bias * neuron.weights[0] + (neuron.output * neuron.weights[1] * memoryRate)
         
         for (let i = 0; i < inputCount; i++) {
-            sum += data[i] * neuron.weights[i+1]
+            sum += data[i] * neuron.weights[i+2]
         }
         
-        return f(sum)
+        neuron.output = f(sum)
     }
     
     return neuron
 }
 
-function createLayer(inputCount, outputCount) {
+function createLayer(inputCount, outputCount, memoryRate) {
     const layer = {}
     layer.neurons = []
     
     for (let i = 0; i < outputCount; i++) {
-        layer.neurons.push(createNeuron(inputCount))
+        layer.neurons.push(createNeuron(inputCount, memoryRate))
     }
     
     layer.predict = (data) => {
         const output = []
         for (let i = 0; i < outputCount; i++) {
-            output.push(layer.neurons[i].predict(data))
+            layer.neurons[i].predict(data)
+            output.push(layer.neurons[i].output)
         }
         
         return output
@@ -62,12 +64,12 @@ function createLayer(inputCount, outputCount) {
     return layer
 }
 
-function createHiddenLayers(inputCount, layerCount, outputCount) {
+function createHiddenLayers(inputCount, layerCount, outputCount, memoryRate) {
     const hidden = {}
     hidden.layers = []
     
     for (let i = 0; i < layerCount; i++) {
-        hidden.layers.push(createLayer(inputCount, outputCount))
+        hidden.layers.push(createLayer(inputCount, outputCount, memoryRate))
         inputCount = outputCount
     }
     
@@ -92,10 +94,10 @@ function mutate(x, rate) {
     return x + rand()
 }
 
-function createRNA(inputCount, hLayerCount, hNeuronCount, outputCount) {
+function createRNA(inputCount, hLayerCount, hNeuronCount, outputCount, memoryRate) {
     const rna = {}
-    rna.hiddenLayers = createHiddenLayers(inputCount, hLayerCount, hNeuronCount)
-    rna.outputLayer = createLayer(hNeuronCount, outputCount)
+    rna.hiddenLayers = createHiddenLayers(inputCount, hLayerCount, hNeuronCount, memoryRate)
+    rna.outputLayer = createLayer(hNeuronCount, outputCount, memoryRate)
     
     rna.predict = (data) => {
         return rna.outputLayer.predict(rna.hiddenLayers.predict(data))
@@ -105,7 +107,7 @@ function createRNA(inputCount, hLayerCount, hNeuronCount, outputCount) {
     //rna.outputLayer.neurons[]
     
     rna.merge = (other, rate = 0.5) => {
-        const child = createRNA(inputCount, hLayerCount, hNeuronCount, outputCount)
+        const child = createRNA(inputCount, hLayerCount, hNeuronCount, outputCount, memoryRate)
        
         for (let layer = 0; layer < rna.hiddenLayers.layers.length; layer++) {
             const l1 = rna.hiddenLayers.layers[layer]
@@ -176,7 +178,7 @@ function createOutputParser(...outputLabels) {
     return parser
 }
 
-function createAgent({hLayerCount, hNeuronCount, inputCount, outputCount, parser = null, noBrain = false, data = {}}) {
+function createAgent({hLayerCount, hNeuronCount, inputCount, outputCount, memoryRate = 0, parser = null, noBrain = false, data = {}}) {
     const agent = {
         ...data
     }
@@ -185,7 +187,7 @@ function createAgent({hLayerCount, hNeuronCount, inputCount, outputCount, parser
     agent.hNeuronCount = hNeuronCount
     agent.inputCount = inputCount
     agent.outputCount = outputCount
-    agent.brain = noBrain? null : createRNA(inputCount, hLayerCount, hNeuronCount, outputCount)
+    agent.brain = noBrain? null : createRNA(inputCount, hLayerCount, hNeuronCount, outputCount, memoryRate)
     agent.parser = data.parser || parser
     agent.isDead = false
     agent.dead = () => { 

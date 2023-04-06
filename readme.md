@@ -40,7 +40,7 @@ const simulation = createSimulation(
     populationSize,         // Quantidade de agentes filhos por geração
     populationParentAmount, // Quantidade de agentes usados para criar a próxima geração 
     mutationRate,           // Taxa de mutação 
-    rnaParams               // objeto com os parâmetros da rede neural (inputCount, hLayerCount, hNeuronCount, outputCount, parser)
+    rnaParams               // objeto com os parâmetros da rede neural (inputCount, hLayerCount, hNeuronCount, outputCount, memoryRate, parser)
 )
 
 function createAgentData() {
