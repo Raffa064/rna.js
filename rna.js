@@ -331,3 +331,18 @@ function rnaTest() {
     console.log(b.predict(data))
     console.log(c.predict(data))
 }
+
+try {
+    if (module != undefined) {
+        module.exports = {
+            createSimulation,
+            createAgent,
+            createRNA,
+            createHiddenLayers,
+            createLayer,
+            createNeuron,
+            createOutputParser,
+            rnaTest
+        }
+    }
+} catch {}
