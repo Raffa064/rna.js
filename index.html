@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RNA.js</title>
+    <script>
+        window.onerror = (err) => {
+            document.body.innerHTML = "<span style='color: red; font-weight: bold; width: 100vw; height: 100vh; display: block; text-align: center;'>ERROR: "+err+"</span>"
+        }
+    </script>
+    <style>
+        canvas {
+            display: block;
+            --size: min(90vw, 90vh);
+            width: var(--size);
+            height: var(--size);
+            margin-inline: auto;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            border: 1px dashed black;
+            transition: 0.2s;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game"></canvas>
+    <script src="rna.js"></script>
+    <script src="index.js"></script>
+</body>
+
+</html>
