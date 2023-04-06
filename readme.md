@@ -81,3 +81,4 @@ while (true) {
 - A fitness function está sendo duplicada entre os agentes
 - Não possui forma nativa de alterar a função de ativação (a padrão é tanh)
 - Código não da biblioteca e do exemplo não estão bem refatorados
+- Não possui save e load das redes
