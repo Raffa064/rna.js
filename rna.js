@@ -95,16 +95,26 @@ function mutate(x, rate) {
 }
 
 function createRNA(inputCount, hLayerCount, hNeuronCount, outputCount, memoryRate) {
-    const rna = {}
-    rna.hiddenLayers = createHiddenLayers(inputCount, hLayerCount, hNeuronCount, memoryRate)
-    rna.outputLayer = createLayer(hNeuronCount, outputCount, memoryRate)
+    var rna = null
+    
+    if (inputCount > 0) {
+        rna = {
+            inputCount,
+            hLayerCount,
+            hNeuronCount,
+            outputCount,
+            memoryRate,
+            hiddenLayers: createHiddenLayers(inputCount, hLayerCount, hNeuronCount, memoryRate),
+            outputLayer: createLayer(hNeuronCount, outputCount, memoryRate)
+        }
+    } else {
+        const rnaJSON = inputCount
+        rna = JSON.parse(rnaJSON)
+    }
     
     rna.predict = (data) => {
         return rna.outputLayer.predict(rna.hiddenLayers.predict(data))
     }
-    
-    //rna.hiddenLayers.layers[].neurons[]
-    //rna.outputLayer.neurons[]
     
     rna.merge = (other, rate = 0.5) => {
         const child = createRNA(inputCount, hLayerCount, hNeuronCount, outputCount, memoryRate)
@@ -147,9 +157,15 @@ function createRNA(inputCount, hLayerCount, hNeuronCount, outputCount, memoryRat
         }
     }
     
-    //TODO: save / load
+    rna.json = () => {
+        return JSON.stringify(rna)
+    }
     
     return rna
+}
+
+function loadFromJSON(json) {
+    return createRNA(json)
 }
 
 function createOutputParser(...outputLabels) {
@@ -215,6 +231,8 @@ function createAgent({hLayerCount, hNeuronCount, inputCount, outputCount, memory
     
     agent.mutate = (rate) => agent.brain.mutate(rate)
 
+    agent.json = () => agent.brain.json()
+
     return agent
 }
 
@@ -227,9 +245,13 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
     simulation.agents = []
     simulation.population = 0
     simulation.highScore = 0
+    simulation.populationBest = 0
+    simulation.currentID = 0
     
     simulation.populate = () => {
         simulation.population += 1
+        simulation.populationBest = 0
+        
         if (simulation.agents.length > 0) {
             //Create new population
             simulation.agents.sort((a, b) => b.fitness(b) - a.fitness(a))
@@ -237,6 +259,9 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
             const best = simulation.agents[0]
             if (best.fitness(best) > simulation.highScore) {
                 simulation.highScore = best.fitness(best)
+                if (simulation.updateBest) {
+                    simulation.updateBest(best)
+                }
             }
             
             const newPopulation = []
@@ -249,6 +274,7 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
                 })
                 agent.isParent = true 
                 agent.brain = simulation.agents[i].brain
+                agent.id = simulation.currentID++
                 
                 newPopulation.push(agent)
             }
@@ -258,6 +284,8 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
                 const dad = simulation.agents[Math.floor(Math.random() * populationParentAmount)]
                 const child = mom.merge(dad, 0.5)
                 child.mutate(mutationRate)
+                child.id = simulation.currentID++
+                
                 newPopulation.push(child)
             }
             
@@ -270,6 +298,8 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
                     ...rnaParams,
                     data: data //Factory for the agent data (fitness function, simulation data, and the createRNA params)
                 })
+                
+                agent.id = simulation.currentID++
 
                 simulation.agents.push(agent)
             }
@@ -279,6 +309,12 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
     simulation.update = (renderFunction) => {
         for (let agentIndex in simulation.agents) {
             const agent = simulation.agents[agentIndex]
+            
+            const fitness = agent.fitness(agent)
+            if (fitness > simulation.populationBest) {
+                simulation.populationBest = fitness
+            }
+            
             if (agent.isDead) continue
             renderFunction(agent)
         }
@@ -302,36 +338,6 @@ function createSimulation(agentDataFactory, populationSize, populationParentAmou
     }
     
     return simulation 
-}
-
-function rnaTest() {
-    const parser = createOutputParser('rotate', 2, 'foward', 1)
-    
-    const a = createAgent({
-        hNeuronCount: 10,
-        hLayerCount: 10,
-        inputCount: 10,
-        outputCount: 3,
-        parser,
-        data: { testData: "Data!!!" }
-    })
-    
-    console.log(a.testData)
-    
-    const b = createAgent({
-        hNeuronCount: 10,
-        hLayerCount: 10,
-        inputCount: 10,
-        outputCount: 3,
-        parser
-    })
-    
-    const c = a.merge(b, 0.01)
-
-    const data = [3, 4, 6, 2, 5, 9, 10, 6, 9, 4, 47, 34]
-    console.log(a.predict(data))
-    console.log(b.predict(data))
-    console.log(c.predict(data))
 }
 
 try {

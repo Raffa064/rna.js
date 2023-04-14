@@ -9,45 +9,38 @@ const PIPE_SPEED = 10
 const PIPE_WIDTH = 50
 const PIPE_GAP_SIZE = 280
 const PIPES = []
-const PIPE_SPAWN_DELAY = 0.1
+const PIPE_SPAWN_DELAY = 0.5
 var spawnTimer = 0
+var speed = 1
 
 //Player
 const PLAYER_X_POSITION = 200
 const PLAYER_SIZE = 32
 const PLAYER_JUMP_HEIGHT = 15
 
-const canvas = document.querySelector("#game")
+const canvas = document.querySelector('#game')
 canvas.width = W
 canvas.height = H
 const ctx = canvas.getContext('2d')
+const bestAgentJSON = document.querySelector('#bestAgentJSON > span')
+const copyButton = document.querySelector('#bestAgentJSON button')
 
 const simulation = setupSimulation()
+simulation.updateBest = (agent) => {
+    bestAgentJSON.innerHTML = '<span style="color: #0cb">Agent ' + agent.id + ':</span> <span style="color: #aa0">' + agent.fitness(agent) + '<span/>'
+    copyButton.onclick = () => {
+        navigator.clipboard.writeText(agent.json()).catch(err => {
+            bestAgentJSON.innerHTML = '<span style="color: #b46">[ Error: No clipboard permission ]</span>'
+        })
+    }
+}
 
 spawnPipe()
 requestAnimationFrame(update)
 
-// requestAnimationFrame(teste)
-
-const a = createRetangle(0, H/2-PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE)
-const b = createRetangle(W/2-PLAYER_SIZE/2, 0, PLAYER_SIZE, H)
-function teste() {
-    ctx.clearRect(0, 0, W, H)
-    
-    setColor('gray')
-    rect(b.pos.x, b.pos.y, b.size.width, b.size.height)
-    
-    setColor(a.overlaps(b) ? 'red' : 'green')
-    rect(a.pos.x, a.pos.y, a.size.width, a.size.height)
-    
-    a.pos.x = (a.pos.x + 1) % W
-    
-    requestAnimationFrame(teste)
-}
-
 function setupSimulation() {
     const parser = createOutputParser('jump', 1)
-    const simulation = createSimulation(createAgentData, 20, 5, 0.2, {
+    const simulation = createSimulation(createAgentData, 100, 5, 0.2, {
         inputCount: 2,
         hLayerCount: 2,
         hNeuronCount: 4,
@@ -63,7 +56,7 @@ function setupSimulation() {
         return colors[Math.floor(Math.random() * colors.length)]
     }
 
-    function createAgentData() {
+    function createAgentData(agent) {
         const data = {
             pos: { x: PLAYER_X_POSITION, y: 300 },
             vel: { x: 0, y: 0 },
@@ -86,7 +79,7 @@ function update() {
     const trash = []
     
     PIPES.forEach(pipe => {
-        pipe.moveAndUpdate(PIPE_SPEED)
+        pipe.moveAndUpdate(PIPE_SPEED + speed)
         
         if (pipe.position < -PIPE_WIDTH) {
             trash.push(pipe)
@@ -136,13 +129,14 @@ function update() {
             nearestPipe.bottom.size.height - s*2
         )
         
+        ctx.strokeStyle = "yellow"
         ctx.beginPath()
         ctx.arc(nearestPipe.getCenter().x, H-nearestPipe.getCenter().y, 5, 0, 2 * Math.PI);
         ctx.stroke()
         ctx.closePath()
     }
     
-    simulation.update((agent) => {
+    simulation.update((agent) => { agent.dead()
         agent.vel.y -= DELTA * GRAVITY
     
         var data = [0, 0]
@@ -174,31 +168,33 @@ function update() {
         setColor(agent.color)
         rect(agentRect.pos.x, agentRect.pos.y, agentRect.size.width, agentRect.size.height)
         
-        
-        agent.points++
-        
         if (agent.pos.y < 0 || agent.pos.y > H || isOverlaping) {
             agent.dead()
-            agent.points /= 4
         }
+        
+        agent.points++
     })
     
-    setColor('black')
+    setColor('white')
     setFont('20px Arial')
-    ctx.fillText('POPULATION: '+simulation.population+' AGENTS: '+simulation.getAgentCount()+' HI: '+simulation.highScore+' '+' PIPES: '+PIPES.length, 20, 20)
+    ctx.fillText('POPULATION: '+simulation.population+' AGENTS: '+simulation.getAgentCount()+' PIPES: '+PIPES.length, 20, 30)
+    ctx.fillText('Score: '+simulation.populationBest.toFixed(2)+'/'+simulation.highScore.toFixed(2), 20, 50)
 
     spawnTimer += DELTA
 
-    if (spawnTimer > PIPE_SPAWN_DELAY) {
+    if (spawnTimer > PIPE_SPAWN_DELAY / speed) {
         spawnPipe()
         spawnTimer = 0
     }
     
     if (simulation.autoPopulate()) {
         PIPES.splice(0, PIPES.length)
+        speed = 1
         spawnTimer = 0
         spawnPipe()
     }
+    
+    speed += 0.001
 
     requestAnimationFrame(update)
 }
@@ -224,8 +220,20 @@ function spawnPipe() {
         position: W
     }
     
-    const displacement = (-1 + Math.random() * 2) * (PIPE_GAP_SIZE / 4) 
+    const MAX_DISPLACEMENT = (PIPE_GAP_SIZE / 4)
+    
+    const randDisplacement = () => {
+        return (-1 + Math.random() * 2) * MAX_DISPLACEMENT
+    }
+    
+    var displacement = randDisplacement()
     pipe.displacement = displacement
+     
+    const lastPipe = PIPES[PIPES.length-1]
+    if (lastPipe) {
+       const ld = lastPipe.displacement
+       displacement = Math.min(ld-MAX_DISPLACEMENT, Math.max(ld+MAX_DISPLACEMENT, displacement))
+    }
     
     pipe.top = createRetangle(
         0,
