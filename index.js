@@ -136,7 +136,7 @@ function update() {
         ctx.closePath()
     }
     
-    simulation.update((agent) => { agent.dead()
+    simulation.update((agent) => {
         agent.vel.y -= DELTA * GRAVITY
     
         var data = [0, 0]
